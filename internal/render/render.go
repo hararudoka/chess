@@ -30,17 +30,17 @@ func (r *Render) Add(e string) {
 }
 
 func (r *Render) ErrorLine(err string) {
-	r.Error = err
+	r.Error = err + "\n"
 }
 
 func (r *Render) EmptyErrorLine() {
-	r.Error = "___________________"
+	r.Error = "___________________\n"
 }
 
 func (r Render) Print(body string) {
 	fmt.Print(body)
 	fmt.Print(">\n")
-	fmt.Print(r)
+	fmt.Print(r, "\n")
 }
 
 func New() (*Render, error) {
@@ -67,9 +67,9 @@ func (r Render) PrintMenu() {
 func getRandomSide() session.Side {
 	rand.Seed(rand.Int63())
 	if rand.Intn(2) == 0 {
-		return session.White
+		return session.WhiteSide
 	}
-	return session.Black
+	return session.BlackSide
 }
 
 func (r *Render) Run() {
@@ -96,61 +96,15 @@ func (r *Render) Run() {
 		if input == "3" {
 			r.PGN()
 		}
+		if input == "4" {
+			r.TestGetPiece()
+		}
+		if input == "5" {
+			r.TestPly()
+		}
 		if input == "q" {
 			break
 		}
-	}
-}
-
-func (r *Render) FEN() {
-	currentBoard := session.Board{}
-	for {
-		clear()
-
-		r.Print(r.RenderBoard(currentBoard))
-
-		fen, err := r.Scan()
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
-
-		round, err := session.FENToRound(fen)
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
-
-		currentBoard = round.Board
-	}
-}
-
-func (r *Render) PGN() {
-	pgn := "*"
-	for {
-		clear()
-		s, err := session.New(pgn, "chess")
-		if err != nil {
-			r.ErrorLine(err.Error())
-			break
-		}
-
-		board := r.RenderBoard(s.Round.Board)
-		r.Print(board)
-
-		pgnFile, err := r.Scan()
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
-
-		pgnBytes, err := os.ReadFile(pgnFile)
-		if err != nil {
-			r.ErrorLine(err.Error())
-			break
-		}
-
-		pgn = string(pgnBytes)
 	}
 }
 
@@ -210,27 +164,4 @@ func (r Render) RenderBoard(b session.Board) string {
 	}
 	s += "  A B C D E F G H\n"
 	return s
-}
-
-func (r *Render) Chess() {
-	s, err := session.New("*", "chess")
-	if err != nil {
-		r.ErrorLine(err.Error())
-		return
-	}
-	s.Round.SideOfPlayer = session.White
-	for {
-		clear()
-
-		board := r.RenderBoard(s.Round.Board)
-		r.Print(board)
-
-		input, err := r.Scan()
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
-
-		s.Round.RawPly(input)
-	}
 }

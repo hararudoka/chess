@@ -1,8 +1,16 @@
 package session
 
-type Side bool
+type Side string
+
+func (side Side) Opposite() Side {
+	if side == WhiteSide {
+		return BlackSide
+	}
+	return WhiteSide
+}
 
 var (
-	White Side = true
-	Black Side = false
+	WhiteSide Side = "white"
+	BlackSide Side = "black"
+	EmptySide Side = ""
 )

@@ -6,7 +6,14 @@ type Piece struct {
 	Kind string
 }
 
-func (p Piece) Rank() string {
+func (p Piece) String() string {
+	return p.Class() + " " + string(p.Side())
+}
+
+func (p Piece) Class() string {
+	if p.Kind == "" {
+		return Empty
+	}
 	return strings.ToUpper(p.Kind)
 }
 
@@ -36,11 +43,14 @@ func (p Piece) Value() int {
 	return 0
 }
 
-func (p Piece) Colour() Side {
-	if p.Kind == "P" || p.Kind == "N" || p.Kind == "B" || p.Kind == "R" || p.Kind == "Q" || p.Kind == "K" {
-		return White
+func (p Piece) Side() Side {
+	if p.Kind == "" {
+		return EmptySide
 	}
-	return Black
+	if p.Kind == "P" || p.Kind == "N" || p.Kind == "B" || p.Kind == "R" || p.Kind == "Q" || p.Kind == "K" {
+		return WhiteSide
+	}
+	return BlackSide
 }
 
 type Pieces []Piece
@@ -51,6 +61,7 @@ func getPiece(kind string) Piece {
 	}
 }
 
+// Clases
 var (
 	Empty  = ""
 	King   = "K"

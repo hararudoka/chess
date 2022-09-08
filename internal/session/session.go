@@ -9,7 +9,7 @@ type Session struct {
 }
 
 func New(pgn, category string) (Session, error) {
-	session, err := PGNToSession(pgn)
+	session, err := NewFromPGN(pgn)
 	if err != nil {
 		return Session{}, err
 	}
@@ -17,8 +17,23 @@ func New(pgn, category string) (Session, error) {
 	return session, nil
 }
 
+func NewFromPGN(pgn string) (Session, error) {
+	meta, pgnCommentless := CommentsToList(pgn)
+
+	round := Round{}
+	err := round.FromPGN(pgnCommentless, meta["FEN"])
+	if err != nil {
+		return Session{}, err
+	}
+	return Session{
+		Round: round,
+		Meta:  meta,
+	}, nil
+}
+
 func NewFromFEN(fen, category string) (Session, error) {
-	round, err := FENToRound(fen)
+	round := Round{}
+	err := round.FromFEN(fen)
 	if err != nil {
 		return Session{}, err
 	}
@@ -28,4 +43,8 @@ func NewFromFEN(fen, category string) (Session, error) {
 	}
 	session.Category = category
 	return session, nil
+}
+
+func (s *Session) StartRecord() {
+	s.Round.StartRecord()
 }

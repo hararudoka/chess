@@ -1,5 +1,9 @@
 package session
 
+import (
+	"errors"
+)
+
 // Ply is a half of a move. If white player moves his piece - that is the ply
 type Ply struct {
 	From Point
@@ -7,22 +11,34 @@ type Ply struct {
 }
 
 // convert Ply to string
-func (p Ply) ToLetters() string {
-	return p.From.ToLetters() + p.To.ToLetters()
+func (p Ply) String() string {
+	return p.From.String() + p.To.String()
 }
 
 // convert string to Ply
-func StringToPly(letters string) (Ply, error) {
-	from, err := StringToPoint(letters[:2])
-	if err != nil {
-		return Ply{}, err
+func (p *Ply) FromString(letters string) error {
+	if len(letters) != 4 {
+		return errors.New("invalid ply: " + letters)
 	}
-	to, err := StringToPoint(letters[2:])
+	from, to := Point{}, Point{}
+	err := from.FromString(letters[:2])
 	if err != nil {
-		return Ply{}, err
+		return err
 	}
-	return Ply{
-		From: from,
-		To:   to,
-	}, err
+	err = to.FromString(letters[2:])
+	if err != nil {
+		return err
+	}
+	p.From = from
+	p.To = to
+	return nil
+}
+
+func MustFromString(letters string) Ply {
+	p := Ply{}
+	err := p.FromString(letters)
+	if err != nil {
+		panic(err)
+	}
+	return p
 }

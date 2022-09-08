@@ -16,7 +16,7 @@ func NewPoint(x File, y Rank) Point {
 }
 
 // changes map coordinates to "A1" like string
-func (p Point) ToLetters() string {
+func (p Point) String() string {
 	m := map[File]string{
 		0: "A",
 		1: "B",
@@ -30,14 +30,17 @@ func (p Point) ToLetters() string {
 	return m[p.File] + fmt.Sprint(8-p.Rank)
 }
 
-func StringToPoint(letters string) (Point, error) {
+func (p *Point) FromString(letters string) error {
 	if len(letters) != 2 {
-		return Point{}, errors.New("letters must be 2 characters long")
+		return errors.New("letters must be 2 characters long")
 	}
 
 	// reversed
-	x := StringToX(letters[1])
-	y := StringToY(letters[0])
+	x := ByteToFile(letters[0])
+	y := ByteToRank(letters[1])
 
-	return NewPoint(x, y), nil
+	p.File = x
+	p.Rank = y
+
+	return nil
 }

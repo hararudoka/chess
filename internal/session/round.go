@@ -12,7 +12,7 @@ type Round struct {
 	Board Board
 
 	// list of moves
-	Moves []Move
+	Turn Turn
 
 	// castling
 	CQ bool
@@ -31,7 +31,11 @@ type Round struct {
 	SideOfPlayer Side
 }
 
-func FENToRound(fen string) (Round, error) {
+func (r *Round) StartRecord() {
+	// ...
+}
+
+func (r *Round) FromFEN(fen string) error {
 	fen2 := ""
 	cutten := ""
 
@@ -62,7 +66,7 @@ loop:
 			cutten = fen[i+1:]
 			break loop
 		default:
-			return Round{}, errors.New("invalid character in FEN: " + string(c))
+			return errors.New("invalid character in FEN: " + string(c))
 		}
 	}
 
@@ -71,18 +75,18 @@ loop:
 	s := strings.Split(fen2, "/")
 
 	if len(s) != 8 {
-		return Round{}, errors.New("wrong FEN string amout of rows")
+		return errors.New("wrong FEN string amout of rows")
 	}
 
 	ctt := strings.Split(cutten, " ")
 
 	// who starts
 	if ctt[0] == "w" {
-		round.SideOfPlayer = White
+		round.SideOfPlayer = WhiteSide
 	} else if ctt[0] == "b" {
-		round.SideOfPlayer = Black
+		round.SideOfPlayer = BlackSide
 	} else {
-		return Round{}, errors.New("wrong FEN string")
+		return errors.New("wrong FEN string")
 	}
 
 	// castling rights
@@ -101,9 +105,10 @@ loop:
 
 	// en passant
 	if ctt[2] != "-" {
-		p, err := StringToPoint(ctt[2])
+		p := Point{}
+		err := p.FromString(ctt[2])
 		if err != nil {
-			return Round{}, err
+			return err
 		}
 		round.EnPassant = p
 	}
@@ -111,13 +116,13 @@ loop:
 	// halfmove counter
 	n, err := strconv.Atoi(ctt[3])
 	if err != nil {
-		return Round{}, errors.New("wrong FEN string (halfmove counter white)")
+		return errors.New("wrong FEN string (halfmove counter white)")
 	}
 	round.HMW = n
 
 	n, err = strconv.Atoi(ctt[4])
 	if err != nil {
-		return Round{}, errors.New("wrong FEN string (halfmove counter black)")
+		return errors.New("wrong FEN string (halfmove counter black)")
 	}
 	round.HMB = n
 
@@ -133,13 +138,166 @@ loop:
 
 	round.Board = board
 
-	return round, nil
+	*r = round
+	return nil
 }
 
-// RawPly processes input and moves piece to new position if cans
-func (r Round) RawPly(raw string) error {
-	p, _ := ToPGNPly(raw)
-	ply, _ := r.PGNPlyToPly(p, r.SideOfPlayer)
-	r.Board.move(ply)
+// makes ply
+func (r *Round) Ply(ply Ply, side Side) (Piece, error) {
+	ok, err := r.IsPlyPossible(ply, side)
+	if err != nil {
+		return Piece{}, err
+	}
+	if ok {
+		p := r.Board.move(ply)
+		return p, nil
+	}
+	return Piece{}, errors.New("ply is not possible")
+}
+
+// checks if ply is legal
+func (r *Round) IsPlyPossible(ply Ply, side Side) (bool, error) {
+	var err error
+	var p Points
+
+	switch r.Board.GetPice(ply.From).Class() {
+	case "P":
+		p, err = r.Pawn(ply.To, side)
+	case "N":
+		p, err = r.Knight(ply.To, side)
+	case "B":
+		p, err = r.Bishop(ply.To, side)
+	case "R":
+		p, err = r.Rook(ply.To, side)
+	case "Q":
+		p, err = r.Queen(ply.To, side)
+	case "K":
+		p, err = r.King(ply.To, side)
+	default:
+		return false, errors.New("wrong ply class")
+	}
+	if err != nil {
+		return false, err
+	}
+	return p.contains(ply.From), nil
+}
+
+func (r Round) GetPossiblePoints(point Point, side Side, class string) Points {
+	var points Points
+	var err error
+
+	switch class {
+	case "P":
+		points, err = r.Pawn(point, side)
+	case "N":
+		points, err = r.Knight(point, side)
+	case "B":
+		points, err = r.Bishop(point, side)
+	case "R":
+		points, err = r.Rook(point, side)
+	case "Q":
+		points, err = r.Queen(point, side)
+	case "K":
+		points, err = r.King(point, side)
+	default:
+		return Points{}
+	}
+
+	if err != nil {
+		return Points{}
+	}
+	return points
+}
+
+func (r Round) FindFrom(to Point, side Side, class, rank, file string) (Point, error) {
+	if rank != "" && file != "" {
+		p := Point{}
+		err := p.FromString(rank + file)
+		if err != nil {
+			return Point{}, err
+		}
+		return p, nil
+	}
+
+	if rank == "" && file == "" {
+		points := r.GetPossiblePoints(to, side.Opposite(), class)
+		for _, point := range points {
+			if r.Board.GetPice(point).Class() == class {
+				return point, nil
+			}
+		}
+	}
+
+	if rank != "" {
+		X := ByteToRank(rank[0])
+		for i, e := range r.Board[X] {
+			if e.Side() == side && e.Class() == class {
+				return NewPoint(File(i), X), nil
+			}
+		}
+	}
+
+	if file != "" {
+		Y := ByteToFile(rank[0])
+		for i, line := range r.Board {
+			if File(i) == Y {
+				for x, e := range line {
+					if e.Side() == side && e.Class() == class {
+						return NewPoint(Y, Rank(x)), nil
+					}
+				}
+			}
+		}
+	}
+
+	return Point{}, errors.New("not found point")
+}
+
+func (r *Round) FromPGN(pgn, fen string) error {
+	if fen == "" {
+		fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+	}
+
+	st := ""
+	for _, e := range pgn {
+		if e == '\n' { // TODO: add tabs and multiple spaces/\n
+			st += " "
+		} else {
+			st += string(e)
+		}
+	}
+
+	err := r.FromFEN(fen)
+	if err != nil {
+		return err
+	}
+
+	stringTurns := []string{}
+	splitted := strings.Split(st, " ")
+	for _, e := range splitted {
+		// skip items that are not moves
+		if e == "" {
+			continue
+		}
+		if e == "." {
+			continue
+		}
+		if _, err := strconv.Atoi(e); err == nil {
+			continue
+		}
+		if _, err := strconv.Atoi(string(e[:len(e)-1])); err == nil && e[len(e)-1] == '.' {
+			continue
+		}
+
+		if len(e) == 2 || len(e) == 3 || len(e) == 4 || len(e) == 5 || len(e) == 6 || len(e) == 7 {
+			stringTurns = append(stringTurns, e)
+		}
+	}
+
+	t, err := r.TurnFromStrings(stringTurns)
+	if err != nil {
+		return err
+	}
+	r.Turn = t
 	return nil
 }
