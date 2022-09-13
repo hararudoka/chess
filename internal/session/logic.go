@@ -50,62 +50,55 @@ func (c *Points) Tidy() {
 	*c = c2
 }
 
-func (r *Round) getPossibleCoords(point Point) (Points, error) {
-	if point == (Point{}) { // TODO: what if point is not possible?
-		return nil, errors.New("non existent point")
-	}
-	piece := r.Board.GetPice(point)
-	if piece.IsEmpty() {
-		return nil, errors.New("empty point")
-	}
-
-	var out Points
-	var possible Points
-	var err error
-	switch piece.Class() {
-	case Pawn:
-		out, err = r.Pawn(point, piece.Side())
-	case Knight:
-		out, err = r.Knight(point, piece.Side())
-	case Bishop:
-		out, err = r.Bishop(point, piece.Side())
-	case Rook:
-		out, err = r.Rook(point, piece.Side())
-	case Queen:
-		out, err = r.Queen(point, piece.Side())
-	case King:
-		out, err = r.King(point, piece.Side())
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	possible = append(possible, out...)
-	return possible, nil
-}
-
-func (r *Round) Pawn(point Point, side Side) (Points, error) {
-	// var out Points
+func (r *Round) Pawn(to Point, side Side) (Points, error) {
 	var err error
 
-	points := Points{
-		NewPoint(point.File, point.Rank+1),
+	side = side.Opposite()
+
+	points := Points{}
+
+	if r.isLastX {
+		if side == WhiteSide {
+			if r.Board.GetPice(NewPoint(to.File+1, to.Rank-1)).Side() == side {
+				points = append(points, NewPoint(to.File+1, to.Rank-1))
+			}
+
+			if r.Board.GetPice(NewPoint(to.File-1, to.Rank-1)).Side() == side {
+				points = append(points, NewPoint(to.File-1, to.Rank-1))
+			}
+		}
+		if side == BlackSide {
+			if r.Board.GetPice(NewPoint(to.File+1, to.Rank+1)).Side() == side {
+				points = append(points, NewPoint(to.File+1, to.Rank+1))
+			}
+
+			if r.Board.GetPice(NewPoint(to.File-1, to.Rank+1)).Side() == side {
+				points = append(points, NewPoint(to.File-1, to.Rank+1))
+			}
+		}
+	} else {
+		if side == WhiteSide {
+			points = append(points, NewPoint(to.File, to.Rank+1))
+
+			p := Point{}
+			p.FromString("a2")
+
+			if to.Rank == p.Rank-2 {
+				points = append(points, NewPoint(to.File, to.Rank+2))
+			}
+		}
+		if side == BlackSide {
+			points = append(points, NewPoint(to.File, to.Rank-1))
+
+			p := Point{}
+			p.FromString("a7")
+
+			if to.Rank == p.Rank+2 {
+				points = append(points, NewPoint(to.File, to.Rank-2))
+			}
+		}
 	}
 
-	if side == WhiteSide {
-		p := Point{}
-		p.FromString("a2")
-		if point.Rank == p.Rank {
-			points = append(points, NewPoint(point.File, point.Rank+2))
-		}
-	}
-	if side == BlackSide {
-		p := Point{}
-		p.FromString("a2")
-		if point.Rank == p.Rank {
-			points = append(points, NewPoint(point.File, point.Rank+2))
-		}
-	}
 	points.Tidy()
 
 	return points, err
@@ -229,17 +222,17 @@ func (r *Round) Bishop(point Point, side Side) (Points, error) {
 	return out, err
 }
 
-func (r *Round) Rook(point Point, side Side) (Points, error) {
+func (r *Round) Rook(to Point, side Side) (Points, error) {
 	var out Points
 	var err error
 
 	// file +
 	for i := 0; i < 8; i++ {
 		// physical (not allowed cuz size of board) clean up
-		if point.File+File(i) > 7 {
+		if to.File+File(i) > 7 {
 			break
 		}
-		p := NewPoint(point.File+File(i), point.Rank)
+		p := NewPoint(to.File+File(i), to.Rank)
 
 		// logic clean up
 		if r.Board.GetPice(p).Side() == side {
@@ -254,10 +247,10 @@ func (r *Round) Rook(point Point, side Side) (Points, error) {
 	// file -
 	for i := 0; i < 8; i++ {
 		// physical (not allowed cuz size of board) clean up
-		if point.File-File(i) < 0 {
+		if to.File-File(i) < 0 {
 			break
 		}
-		p := NewPoint(point.File-File(i), point.Rank)
+		p := NewPoint(to.File-File(i), to.Rank)
 
 		// logic clean up
 		if r.Board.GetPice(p).Side() == side {
@@ -272,10 +265,10 @@ func (r *Round) Rook(point Point, side Side) (Points, error) {
 	// rank +
 	for i := 0; i < 8; i++ {
 		// physical (not allowed cuz size of board) clean up
-		if point.Rank+Rank(i) > 7 {
+		if to.Rank+Rank(i) > 7 {
 			break
 		}
-		p := NewPoint(point.File, point.Rank+Rank(i))
+		p := NewPoint(to.File, to.Rank+Rank(i))
 
 		// logic clean up
 		if r.Board.GetPice(p).Side() == side {
@@ -290,10 +283,10 @@ func (r *Round) Rook(point Point, side Side) (Points, error) {
 	// rank -
 	for i := 0; i < 8; i++ {
 		// physical (not allowed cuz size of board) clean up
-		if point.Rank-Rank(i) < 0 {
+		if to.Rank-Rank(i) < 0 {
 			break
 		}
-		p := NewPoint(point.File, point.Rank-Rank(i))
+		p := NewPoint(to.File, to.Rank-Rank(i))
 
 		// logic clean up
 		if r.Board.GetPice(p).Side() == side {
@@ -310,16 +303,17 @@ func (r *Round) Rook(point Point, side Side) (Points, error) {
 	return out, err
 }
 
-func (r *Round) Queen(point Point, side Side) (Points, error) {
+// returns possible Points, which can be moved FROM
+func (r *Round) Queen(to Point, side Side) (Points, error) {
 	var out Points
 	var err error
 
-	bishop, err := r.Bishop(point, side)
+	bishop, err := r.Bishop(to, side)
 	if err != nil {
 		return out, err
 	}
 
-	rook, err := r.Rook(point, side)
+	rook, err := r.Rook(to, side)
 	if err != nil {
 		return out, err
 	}
@@ -328,6 +322,8 @@ func (r *Round) Queen(point Point, side Side) (Points, error) {
 	out = append(out, rook...)
 
 	out.Tidy()
+
+	//panic(r.Board.GetPice(to))
 
 	return out, err
 }
@@ -358,4 +354,49 @@ func (r *Round) King(point Point, side Side) (Points, error) {
 	}
 
 	return out, err
+}
+
+func (r *Round) CastlingCheck(point Ply, side Side) error {
+	// TODO: checks
+	c := r.LastCastling
+	r.LastCastling = ""
+
+	if c == "K" {
+		if !r.CK {
+			return errors.New("castling is dead")
+		}
+
+		// NOT WORKING YET
+		if r.Board.GetPice(Point{6, 7}).Class() == Empty || r.Board.GetPice(Point{5, 7}).Class() == Empty {
+			return errors.New("not allowed")
+		}
+	}
+	if c == "Q" {
+		if !r.CQ {
+			return errors.New("castling is dead")
+		}
+
+		if r.Board.GetPice(Point{2, 7}).Class() == Empty || r.Board.GetPice(Point{3, 7}).Class() == Empty || r.Board.GetPice(Point{1, 7}).Class() == Empty {
+			return errors.New("not allowed")
+		}
+	}
+	if c == "k" {
+		if !r.Ck {
+			return errors.New("castling is dead")
+		}
+
+		if r.Board.GetPice(Point{6, 0}).Class() == Empty || r.Board.GetPice(Point{5, 0}).Class() == Empty {
+			return errors.New("not allowed")
+		}
+	}
+	if c == "q" {
+		if !r.Cq {
+			return errors.New("castling is dead")
+		}
+
+		if r.Board.GetPice(Point{2, 0}).Class() == Empty || r.Board.GetPice(Point{3, 0}).Class() == Empty || r.Board.GetPice(Point{1, 0}).Class() == Empty {
+			return errors.New("not allowed")
+		}
+	}
+	return nil
 }

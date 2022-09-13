@@ -48,3 +48,28 @@ func NewFromFEN(fen, category string) (Session, error) {
 func (s *Session) StartRecord() {
 	s.Round.StartRecord()
 }
+
+func (s *Session) Move(input string) (Piece, error) {
+	ply, err := s.Round.PlyFromString(input, s.Round.SideOfPlayer)
+	if err != nil {
+		return Piece{}, err
+	}
+	p, err := s.Round.Ply(ply, s.Round.SideOfPlayer)
+	if err != nil {
+		return Piece{}, err
+	}
+	return p, nil
+}
+
+func (s *Session) BotMove() (Piece, error) {
+	// TODO: ...
+	ply, err := s.Round.PlyFromString("a5", s.Round.SideOfPlayer.Opposite())
+	if err != nil {
+		return Piece{}, err
+	}
+	p, err := s.Round.Ply(ply, s.Round.SideOfPlayer.Opposite())
+	if err != nil {
+		return Piece{}, err
+	}
+	return p, nil
+}

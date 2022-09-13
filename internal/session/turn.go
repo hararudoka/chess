@@ -1,55 +1,81 @@
 package session
 
-import "errors"
+import (
+	"errors"
+)
 
 // Turn is one full cycle two players' board interaction
 type Turn struct {
-	next, prev *Turn
+	prev *Turn
 
 	White Ply
 	Black Ply
 }
 
-func (turn *Turn) Add(newTurn Turn) bool {
-	// if turn have data in next field it is impossible to add another turn (actually it is possible but i don't need it)
-	if turn.next != nil {
-		return false
+func (t *Turn) Len() int {
+	if t == nil {
+		return 0
 	}
+	return 1 + t.prev.Len()
+}
+
+func (t *Turn) Get(n int) *Turn {
+	if t == nil {
+		return nil
+	}
+	if n == 0 {
+		return t
+	}
+	return t.prev.Get(n - 1)
+}
+
+func (t *Turn) First() *Turn {
+	if t == nil {
+		return nil
+	}
+	if t.prev == nil {
+		return t
+	}
+	return t.prev.First()
+}
+
+func (turn *Turn) Add(newTurn Turn) bool {
 	// if newTurn has more than one turn it is impossible to add
 	if newTurn.prev != nil {
 		return false
 	}
 	// if turn is empty
-	if turn.Black == (Ply{}) && turn.White == (Ply{}) {
+	if turn == nil {
 		*turn = newTurn
 		return true
 	}
-	// if prev is nil just move turn to prev and add data from newTurn
-	if turn.prev == nil {
-		turn.prev = turn.Copy()
-		turn.White = newTurn.White
-		turn.Black = newTurn.Black
-		return true
-	}
 
-	cp := &Turn{}
-	cp = turn.prev.Copy()
+	cp := turn.Copy()
 
 	*turn = newTurn
+
 	turn.prev = cp
 
 	return true
 }
 
 func (t Turn) Copy() *Turn {
+	if t == (Turn{}) {
+		return nil
+	}
 	return &t
 }
 
 func (t *Turn) String() string {
-	if t.prev == nil {
-		return t.White.String() + "+" + t.Black.String()
+	var s string
+
+	if t.prev != nil {
+		s += t.prev.String() + " -> "
 	}
-	return t.prev.String() + " -> " + t.White.String() + "+" + t.Black.String()
+
+	s += t.White.String() + "+" + t.Black.String()
+
+	return s
 }
 
 func (turn *Turn) Equal(newTurn Turn) bool {

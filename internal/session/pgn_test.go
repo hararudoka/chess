@@ -191,10 +191,8 @@ func TestTurnFromStrings(t *testing.T) {
 	}{
 		{
 			name: "nights one move",
-			input: []string{
-				"Nf3",
-				"Nf6",
-			},
+
+			input: []string{"Nf3", "Nf6"},
 			want: Turn{
 				White: MustFromString("g1f3"),
 				Black: MustFromString("g8f6"),
@@ -202,12 +200,8 @@ func TestTurnFromStrings(t *testing.T) {
 		},
 		{
 			name: "nights two moves 1",
-			input: []string{
-				"Nf3",
-				"Nf6",
-				"Nh4",
-				"Nh5",
-			},
+
+			input: []string{"Nf3", "Nf6", "Nh4", "Nh5"},
 			want: Turn{
 				prev: &Turn{
 					White: MustFromString("g1f3"),
@@ -220,12 +214,8 @@ func TestTurnFromStrings(t *testing.T) {
 		},
 		{
 			name: "nights two moves 2",
-			input: []string{
-				"Nf3",
-				"Nf6",
-				"Nd4",
-				"Nd5",
-			},
+
+			input: []string{"Nf3", "Nf6", "Nd4", "Nd5"},
 			want: Turn{
 				prev: &Turn{
 					White: MustFromString("g1f3"),
@@ -238,12 +228,8 @@ func TestTurnFromStrings(t *testing.T) {
 		},
 		{
 			name: "nights two moves 3",
-			input: []string{
-				"Nc3",
-				"Na6",
-				"Ne4",
-				"Nb4",
-			},
+
+			input: []string{"Nc3", "Na6", "Ne4", "Nb4"},
 			want: Turn{
 				prev: &Turn{
 					White: MustFromString("b1c3"),
@@ -254,11 +240,94 @@ func TestTurnFromStrings(t *testing.T) {
 				Black: MustFromString("a6b4"),
 			},
 		},
+		{
+			name: "pawns d4 d5",
+
+			input: []string{"d4", "d5"},
+			want: Turn{
+				White: MustFromString("d2d4"),
+				Black: MustFromString("d7d5"),
+			},
+		},
+		{
+			name: "pawns d3 d6",
+
+			input: []string{"d3", "d6"},
+			want: Turn{
+				White: MustFromString("d2d3"),
+				Black: MustFromString("d7d6"),
+			},
+		},
+		{
+			name: "pawns a3 a6",
+
+			input: []string{"a3", "h6", "a4", "h5", "a5", "h4", "a6", "h3"},
+			want: Turn{
+				prev: &Turn{
+					prev: &Turn{
+						prev: &Turn{
+							White: MustFromString("a2a3"),
+							Black: MustFromString("h7h6"),
+						},
+						White: MustFromString("a3a4"),
+						Black: MustFromString("h6h5"),
+					},
+					White: MustFromString("a4a5"),
+					Black: MustFromString("h5h4"),
+				},
+				White: MustFromString("a5a6"),
+				Black: MustFromString("h4h3"),
+			},
+		},
+		{
+			name: "bishops",
+
+			input: []string{"d4", "d5", "Bf4", "Bf5", "Nf3", "Nf6"},
+			want: Turn{
+				prev: &Turn{
+					prev: &Turn{
+						White: MustFromString("d2d4"),
+						Black: MustFromString("d7d5"),
+					},
+					White: MustFromString("c1f4"),
+					Black: MustFromString("c8f5"),
+				},
+				White: MustFromString("g1f3"),
+				Black: MustFromString("g8f6"),
+			},
+		},
+		{
+			name: "pawn take",
+
+			input: []string{"e4", "d5", "exd5", "Nf6"},
+			want: Turn{
+				prev: &Turn{
+					White: MustFromString("e2e4"),
+					Black: MustFromString("d7d5"),
+				},
+				White: MustFromString("e4d5"),
+				Black: MustFromString("g8f6"),
+			},
+		},
+		{
+			name: "pawn take queen take",
+
+			input: []string{"e4", "d5", "exd5", "Qxd5"},
+			want: Turn{
+				prev: &Turn{
+					White: MustFromString("e2e4"),
+					Black: MustFromString("d7d5"),
+				},
+				White: MustFromString("e4d5"),
+				Black: MustFromString("d8d5"),
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt := tt
+			var gottenErr error
 
 			round := Round{}
 			err := round.FromFEN("rnbqkbn/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
@@ -268,11 +337,19 @@ func TestTurnFromStrings(t *testing.T) {
 
 			got, err := round.TurnFromStrings(tt.input)
 			if err != nil {
-				panic(err)
+				gottenErr = err
 			}
 
-			if !got.Equal(tt.want) {
-				t.Errorf("TurnFromStrings()\nwant: \n%s\n got: \n%s", tt.want.String(), got.String())
+			if tt.name == "pawn take" {
+				r := round
+				r.Last()
+				fmt.Println(r.Board.GetPice(Point{3, 1}))
+			}
+
+			if gottenErr != tt.err {
+				t.Errorf("err := TurnFromStrings()\nwant: %v\n got: %v", tt.err, gottenErr)
+			} else if !got.Equal(tt.want) {
+				t.Errorf("turn := TurnFromStrings()\nwant: %s\n got: %s", tt.want.String(), got.String())
 			}
 		},
 		)

@@ -1,30 +1,36 @@
 package render
 
 import (
+	"time"
+
 	"github.com/hararudoka/chess/internal/session"
 )
 
 func (r *Render) Chess() {
-	// s, err := session.New("*", "chess")
-	// if err != nil {
-	// 	r.ErrorLine(err.Error())
-	// 	return
-	// }
-	// s.Round.SideOfPlayer = session.WhiteSide
-	// for {
-	// 	clear()
+	s, err := session.New("*", "chess")
+	if err != nil {
+		r.ErrorLine(err.Error())
+		return
+	}
 
-	// 	board := r.RenderBoard(s.Round.Board)
-	// 	r.Print(board)
+	s.Round.SideOfPlayer = session.WhiteSide
 
-	// 	input, err := r.Scan()
-	// 	if err != nil {
-	// 		r.ErrorLine(err.Error())
-	// 		continue
-	// 	}
+	for {
+		clear()
 
-	// 	s.Round.Ply(input)
-	// }
+		board := r.StringBoard(s.Round.Board)
+		r.Print(board)
+
+		input := r.Scan()
+
+		p, err := s.Move(input)
+		if err != nil {
+			r.ErrorLine(err.Error())
+			continue
+		}
+
+		r.Add(input + " = " + p.String())
+	}
 }
 
 func (r *Render) FEN() {
@@ -32,15 +38,11 @@ func (r *Render) FEN() {
 	for {
 		clear()
 
-		r.Print(r.RenderBoard(round.Board))
+		r.Print(r.StringBoard(round.Board))
 
-		fen, err := r.Scan()
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
+		fen := r.Scan()
 
-		err = round.FromFEN(fen)
+		err := round.FromFEN(fen)
 		if err != nil {
 			r.ErrorLine(err.Error())
 			continue
@@ -50,21 +52,28 @@ func (r *Render) FEN() {
 
 func (r *Render) PGN() {
 	clear()
-	pgn := `1. e4 e5`
+	pgn := `1. e4 d5 2. exd5 Qd5`
 
 	s, err := session.New(pgn, "chess")
 	if err != nil {
 		r.ErrorLine(err.Error())
+		return
 	}
 
-	board := r.RenderBoard(s.Round.Board)
-	r.Print(board)
+	for {
+		clear()
 
-	clear()
+		r.PrintBoard(s.Round.Board)
 
-	s.StartRecord()
+		err := s.Round.Next()
+		if err != nil {
+			r.ErrorLine(err.Error())
+		}
 
-	r.Print(board)
+		// r.ErrorLine(fmt.Sprint(s.Round.Turn.Get(9)))
+
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func (r *Render) TestPly() {
@@ -80,14 +89,10 @@ func (r *Render) TestPly() {
 	for {
 		clear()
 
-		board := r.RenderBoard(s.Round.Board)
+		board := r.StringBoard(s.Round.Board)
 		r.Print(board)
 
-		input, err := r.Scan()
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
+		input := r.Scan()
 
 		ply, err := s.Round.PlyFromString(input, session.WhiteSide)
 		if err != nil {
@@ -115,13 +120,10 @@ func (r Render) TestGetPiece() {
 
 	for {
 		clear()
-		r.Print(r.RenderBoard(round.Board))
+		r.Print(r.StringBoard(round.Board))
 
-		input, err := r.Scan()
-		if err != nil {
-			r.ErrorLine(err.Error())
-			continue
-		}
+		input := r.Scan()
+
 		p := session.Point{}
 		err = p.FromString(input)
 		if err != nil {

@@ -6,6 +6,8 @@ import (
 
 // Ply is a half of a move. If white player moves his piece - that is the ply
 type Ply struct {
+	IsCastling bool
+
 	From Point
 	To   Point
 }

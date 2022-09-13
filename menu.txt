@@ -1,10 +1,10 @@
 The Chess
 
-1. Play chess (random side)
-2. Render FEN
-3. Render PGN
-4. Test GetPiece
-5. Test Plys
+1. Play chess (random side) [WIP]
+2. Render FEN [ready]
+3. Render PGN [Play PGN]
+4. Test GetPiece [TEST]
+5. Test Plys [TEST]
 
 
 0. Quit

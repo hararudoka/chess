@@ -18,7 +18,6 @@ type pgn struct { // Longest example: Nb4xd5+!?
 	FileFrom string // a
 	RankFrom string // 1
 
-	
 	// 100% are 2 symbols
 	To string // d5
 
@@ -31,13 +30,15 @@ type pgn struct { // Longest example: Nb4xd5+!?
 	Special string // O-O-O
 }
 
-func fillpgn(s string) (pgn, error) {
+func (r *Round) fillpgn(s string) (pgn, error) {
 	p := pgn{}
 	// check on special
 	if strings.Contains(s, "-") || s == "*" {
 		p.Special = s
 		return p, nil
 	}
+
+	s = strings.TrimSpace(s)
 
 	// check on errors
 	if len(s) == 0 || len(s) == 1 {
@@ -65,6 +66,7 @@ func fillpgn(s string) (pgn, error) {
 	}
 
 	if p.IsTaked {
+		r.isLastX = true
 		if strings.Index(s, "x") == 1 { // Nxd5 etc.
 			p.To = string(s[2]) + string(s[3])
 		}
@@ -83,32 +85,78 @@ func fillpgn(s string) (pgn, error) {
 			p.FileFrom = string(s[1])
 			p.RankFrom = string(s[2])
 		}
+	} else {
+		r.isLastX = false
 	}
+
+	// if s == "Qxd5" {
+	// 	panic(p.To)
+	// }
 
 	return p, nil
 }
 
 // converts a ply written in PGN to a Ply
-func (r Round) PlyFromString(s string, side Side) (Ply, error) {
-	pgn, err := fillpgn(s)
+func (r *Round) PlyFromString(s string, side Side) (Ply, error) {
+	pgn, err := r.fillpgn(s)
 	if err != nil {
 		return Ply{}, err
 	}
 
-	p := Point{}
-	err = p.FromString(pgn.To)
+	to := Point{}
+
+	if pgn.Special != "" {
+		if pgn.Special == "O-O" {
+			if side == WhiteSide {
+				r.LastCastling = "K"
+				return Ply{
+					IsCastling: true,
+					From:       Point{4, 0},
+					To:         Point{6, 0},
+				}, nil
+			}
+			r.LastCastling = "k"
+			return Ply{
+				IsCastling: true,
+				From:       Point{4, 7},
+				To:         Point{6, 7},
+			}, nil
+		}
+		if pgn.Special == "O-O-O" {
+			if side == WhiteSide {
+				r.LastCastling = "Q"
+				return Ply{
+					IsCastling: true,
+					From:       Point{4, 0},
+					To:         Point{2, 0},
+				}, nil
+			}
+			r.LastCastling = "q"
+			return Ply{
+				IsCastling: true,
+				From:       Point{4, 7},
+				To:         Point{2, 7},
+			}, nil
+		}
+	} else {
+		if pgn.To == "" {
+			panic("|" + s + "|")
+		}
+	}
+
+	err = to.FromString(pgn.To)
 	if err != nil {
 		return Ply{}, err
 	}
 
-	point, err := r.FindFrom(p, side, pgn.Class, pgn.RankFrom, pgn.FileFrom)
+	from, err := r.FindFrom(to, side, pgn.Class, pgn.RankFrom, pgn.FileFrom)
 	if err != nil {
 		return Ply{}, err
 	}
 
 	return Ply{
-		From: point,
-		To:   p,
+		From: from,
+		To:   to,
 	}, nil
 }
 

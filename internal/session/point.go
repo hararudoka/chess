@@ -32,12 +32,15 @@ func (p Point) String() string {
 
 func (p *Point) FromString(letters string) error {
 	if len(letters) != 2 {
-		return errors.New("letters must be 2 characters long")
+		return errors.New("letters must be 2 characters long: " + letters)
 	}
 
 	// reversed
 	x := ByteToFile(letters[0])
 	y := ByteToRank(letters[1])
+	if x == -1 || y == -1 {
+		return errors.New("invalid letters")
+	}
 
 	p.File = x
 	p.Rank = y

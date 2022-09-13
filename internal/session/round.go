@@ -13,12 +13,19 @@ type Round struct {
 
 	// list of moves
 	Turn Turn
+	// number of turn
+	N int
+
+	isLastX bool
 
 	// castling
 	CQ bool
 	CK bool
 	Cq bool
 	Ck bool
+
+	// last castling
+	LastCastling string
 
 	// enpassant
 	EnPassant Point
@@ -31,8 +38,37 @@ type Round struct {
 	SideOfPlayer Side
 }
 
+func (r *Round) Last() error {
+	for {
+		err := r.Next()
+		if err != nil {
+			return err
+		}
+	}
+}
+
+
+// play one turn
+func (r *Round) Next() error {
+	var err error
+
+	if t := r.Turn.Get(r.Turn.Len() - r.N - 1); t != nil { // TODO: very tricky line, cuz len-n can be dangerous
+		_, err = r.Ply(t.White, WhiteSide)
+		if err != nil {
+			return err
+		}
+		_, err = r.Ply(t.Black, BlackSide)
+		if err != nil {
+			return err
+		}
+		r.N++
+	} else {
+		return errors.New("no more turns")
+	}
+	return nil
+}
+
 func (r *Round) StartRecord() {
-	// ...
 }
 
 func (r *Round) FromFEN(fen string) error {
@@ -152,13 +188,30 @@ func (r *Round) Ply(ply Ply, side Side) (Piece, error) {
 		p := r.Board.move(ply)
 		return p, nil
 	}
-	return Piece{}, errors.New("ply is not possible")
+	return Piece{}, errors.New("ply is not possible " + ply.String())
 }
 
 // checks if ply is legal
 func (r *Round) IsPlyPossible(ply Ply, side Side) (bool, error) {
 	var err error
 	var p Points
+
+	side = side.Opposite()
+
+	if ply.IsCastling {
+		err = r.CastlingCheck(ply, side)
+		if err != nil {
+			return false, err
+		}
+		if side == WhiteSide {
+			r.CK = false
+			r.CQ = false
+		} else {
+			r.Ck = false
+			r.Cq = false
+		}
+		return true, nil
+	}
 
 	switch r.Board.GetPice(ply.From).Class() {
 	case "P":
@@ -182,23 +235,23 @@ func (r *Round) IsPlyPossible(ply Ply, side Side) (bool, error) {
 	return p.contains(ply.From), nil
 }
 
-func (r Round) GetPossiblePoints(point Point, side Side, class string) Points {
+func (r Round) GetPossiblePoints(to Point, side Side, class string) Points {
 	var points Points
 	var err error
 
 	switch class {
 	case "P":
-		points, err = r.Pawn(point, side)
+		points, err = r.Pawn(to, side)
 	case "N":
-		points, err = r.Knight(point, side)
+		points, err = r.Knight(to, side)
 	case "B":
-		points, err = r.Bishop(point, side)
+		points, err = r.Bishop(to, side)
 	case "R":
-		points, err = r.Rook(point, side)
+		points, err = r.Rook(to, side)
 	case "Q":
-		points, err = r.Queen(point, side)
+		points, err = r.Queen(to, side)
 	case "K":
-		points, err = r.King(point, side)
+		points, err = r.King(to, side)
 	default:
 		return Points{}
 	}
@@ -209,6 +262,7 @@ func (r Round) GetPossiblePoints(point Point, side Side, class string) Points {
 	return points
 }
 
+// finds point from which piece can move to To point
 func (r Round) FindFrom(to Point, side Side, class, rank, file string) (Point, error) {
 	if rank != "" && file != "" {
 		p := Point{}
@@ -221,6 +275,9 @@ func (r Round) FindFrom(to Point, side Side, class, rank, file string) (Point, e
 
 	if rank == "" && file == "" {
 		points := r.GetPossiblePoints(to, side.Opposite(), class)
+		// if class == "Q" {
+		// 	panic(points)
+		// }
 		for _, point := range points {
 			if r.Board.GetPice(point).Class() == class {
 				return point, nil
@@ -238,7 +295,16 @@ func (r Round) FindFrom(to Point, side Side, class, rank, file string) (Point, e
 	}
 
 	if file != "" {
-		Y := ByteToFile(rank[0])
+		if class == Pawn {
+			points := r.GetPossiblePoints(to, side.Opposite(), class)
+			for _, point := range points {
+				if r.Board.GetPice(point).Class() == class {
+					return point, nil
+				}
+			}
+		}
+
+		Y := ByteToFile(file[0])
 		for i, line := range r.Board {
 			if File(i) == Y {
 				for x, e := range line {
@@ -250,16 +316,16 @@ func (r Round) FindFrom(to Point, side Side, class, rank, file string) (Point, e
 		}
 	}
 
-	return Point{}, errors.New("not found point")
+	return Point{}, errors.New("not found point for " + class + to.String())
 }
 
-func (r *Round) FromPGN(pgn, fen string) error {
+func (r *Round) FromPGN(wholepgn, fen string) error {
 	if fen == "" {
 		fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 	}
 
 	st := ""
-	for _, e := range pgn {
+	for _, e := range wholepgn {
 		if e == '\n' { // TODO: add tabs and multiple spaces/\n
 			st += " "
 		} else {
